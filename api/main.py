@@ -58,9 +58,16 @@ async def detect_video(file: UploadFile | None = File(default=None)):
     x = np.vstack(x_batches) if x_batches else np.empty((0, 2048), dtype=np.float32)
     model = joblib.load("../models/model.joblib")
     predict = model.predict(x)
-    print(predict)
-
     await file.close()
+    predict = predict.sum() / len(predict)
+    for folder in [Path("../temp/photos"), Path("../temp/video")]:
+        for item in folder.iterdir():
+            if item.is_file():
+                item.unlink()
+    return {"Predicted": "fake" if predict > 0.7 else "real",
+            "Confidence": 1-predict}
+
+
 
 
 if __name__ == '__main__':
