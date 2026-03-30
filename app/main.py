@@ -302,19 +302,11 @@ class MainWindow(QWidget):
 
         media_type = detect_media_type(file_path)
         if media_type == "unknown":
-            QMessageBox.warning(
-                self,
-                "Ошибка",
-                "Поддерживаются только audio/video файлы"
-            )
+            QMessageBox.warning(self, "Ошибка", "Поддерживаются только audio/video файлы")
             return
 
         if media_type == "audio" and not audio_endpoint:
-            QMessageBox.warning(
-                self,
-                "Ошибка",
-                "Для audio пока не задан endpoint"
-            )
+            QMessageBox.warning(self, "Ошибка", "Для audio пока не задан endpoint")
             return
 
         self.predict_button.setEnabled(False)
@@ -323,7 +315,7 @@ class MainWindow(QWidget):
         self.summary_label.setText("Ожидаем ответ модели...")
         self.raw_output.clear()
 
-        self.thread = QThread()
+        self.thread = QThread(self)
         self.worker = PredictionWorker(
             base_url=base_url,
             video_endpoint=video_endpoint,
@@ -334,14 +326,28 @@ class MainWindow(QWidget):
         self.worker.moveToThread(self.thread)
 
         self.thread.started.connect(self.worker.run)
+
         self.worker.finished.connect(self.on_prediction_success)
         self.worker.error.connect(self.on_prediction_error)
 
         self.worker.finished.connect(self.thread.quit)
         self.worker.error.connect(self.thread.quit)
 
+        self.worker.finished.connect(self.worker.deleteLater)
+        self.worker.error.connect(self.worker.deleteLater)
+
+        self.thread.finished.connect(self._cleanup_after_thread)
         self.thread.finished.connect(self.thread.deleteLater)
+
         self.thread.start()
+
+
+    def _cleanup_after_thread(self):
+        self.predict_button.setEnabled(True)
+        self.browse_button.setEnabled(True)
+        self.worker = None
+        self.thread = None
+
 
     def on_prediction_success(self, result: dict[str, Any]):
         self.predict_button.setEnabled(True)
